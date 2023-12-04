@@ -1,6 +1,6 @@
 #include "download.h"
 
-int parseArguments(char *url, struct parseArguments *pa){
+int parseArguments(char *url, struct parseArguments *pa) {
     printf("Parsing command line arguments...\n");
 
     regex_t regex;
@@ -27,7 +27,7 @@ int parseArguments(char *url, struct parseArguments *pa){
     return 0;
 }
 
-int getIpAddress(char *ip, char *host){
+int getIpAddress(char *ip, char *host) {
     if ((h = gethostbyname(host)) == NULL) {
         printf("gethostbyname() ERROR!");
         return -1;
@@ -36,7 +36,7 @@ int getIpAddress(char *ip, char *host){
     return 0;
 }
 
-int createAndConnectSocket(char *ip, int port){
+int createAndConnectSocket(char *ip, int port) {
     int sockfd;
     struct sockaddr_in server_addr;
 
@@ -60,7 +60,7 @@ int createAndConnectSocket(char *ip, int port){
     return sockfd;
 }
 
-int stateMachine(int socket, char *buf){
+int stateMachine(int socket, char *buf) {
     char byte;
     State state = START;
     int i = 0;
@@ -101,10 +101,14 @@ int stateMachine(int socket, char *buf){
     return code;
 }
 
-int authenticate(int socket, char *user, char *pass){
+int authenticate(int socket, char *user, char *pass) {
     char userCom[5+strlen(user)+1]; // Não sei porque se adiciona 5 e 1
     char passCom[5+strlen(pass)+1]; 
     char res[MAX_LENGTH];
+
+    snprintf(userCom, sizeof(userCom), "user %s\n", user);
+    snprintf(passCom, sizeof(passCom), "pass %s\n", pass);
+
 
     write(socket, userCom, strlen(userCom));
     if (stateMachine(socket, res) != READY4PASS){
@@ -114,6 +118,72 @@ int authenticate(int socket, char *user, char *pass){
 
     write(socket, passCom, strlen(passCom));
     return stateMachine(socket, res);
+}
+
+int switchPassiveMode(int socket, char *ip, int *portFT) {
+    char res[MAX_LENGTH];
+
+    write(socket, "pasv\n", 5);
+    if(stateMachine(socket, res) != PASSIVE){
+        printf("Passsive Mode Error!");
+        return -1;
+    }
+
+    int ip1, ip2, ip3, ip4, port1, port2;
+    sscanf(res, "227 Entering Passive Mode (%d,%d,%d,%d,%d,%d).", &ip1, &ip2, &ip3, &ip4, &port1, &port2);
+    *portFT = port1 * 256 + port2;
+
+    snprintf(ip, sizeof(ip), "%d.%d.%d.%d", ip1, ip2, ip3, ip4);
+    return 0;
+}
+
+int resqPath(int socket, char *path) {
+    char res[MAX_LENGTH];
+    char fileCom[MAX_LENGTH];
+
+    snprintf(fileCom, sizeof(fileCom), "path %s\n", path);
+
+    write(socket, fileCom, sizeof(fileCom));
+
+    if(stateMachine(socket, res) != READY4TRANSFER) {
+        return -1;
+    }
+
+    return 0;
+}
+
+int getFile(int socketA, int socketB, char *fileName){
+    FILE *file = fopen(filename, "wb");
+
+    if (file == NULL){
+        printf("Error opening or creating file");
+        return -1;
+    }
+
+    char buf[MAX_LENGTH];
+    ssize_t bytes;
+
+    do {
+        bytes = read(socketB, buf, MAX_LENGTH);
+        if (bytes < 0) {
+            perror("Error reading from socket");
+            fclose(fd);
+            return -1;
+        }
+
+        if (fwrite(buf, bytes, 1, file) < 0) {
+            perror("Error writing to file");
+            fclose(fd);
+            return -1;
+        }
+    } while (bytes > 0);
+
+    fclose(file);
+
+    if(stateMachine(socketA, buf) != TRANSFER_COMPLETE){
+        return -1;
+    }
+    return 0;
 }
 
 
@@ -144,10 +214,9 @@ int main(int argc, char **argv) {
     printf("File name: %s\n", pa.file);
     printf("IP Address: %s\n", pa.ip);
 
-    char answer[MAX_LENGTH];
     int socketA = createAndConnectSocket(pa.ip, FTP_PORT);
     if (socketA < 0) {
-        printf("Socket creation failed!");
+        printf("Socket A creation failed!");
         exit(-1);
     }
 
@@ -163,5 +232,47 @@ int main(int argc, char **argv) {
         exit(-1);
     }
 
+    int portFT;
+    char serverIP[MAX_LENGTH] ;
+    if (switchPassiveMode(socketA, serverIP, &portFT) != 0){
+        printf("Passive mode failed\n");
+        exit(-1);
+    }
 
+    int socketB = createAndConnectSocket(pa.ip, FTP_PORT);
+    if (socketA < 0) {
+        printf("Socket B creation failed!\n");
+        exit(-1);
+    }
+
+    if(resqPath(socketA, pa.path) != 0){
+        printf("Unknown path\n");
+        exit(-1);
+    }
+
+    if(getFile(socketA, socketB, pa.file) != 0){
+        printf("Error transfering file!\n");
+        exit(-1);
+    }
+
+    write(socketA, "quit\n", 5);
+
+    char answer[MAX_LENGTH];
+
+    if(stateMachine(socketA, answer) != GOODBYE){
+        printf("GoodBye Error!\n");
+        exit(-1);
+    }
+
+    if (close(socketA) < 0) {
+        perror("close()");
+        exit(-1);
+    }
+
+    if (close(socketB) < 0) {
+        perror("close()");
+        exit(-1);
+    }
+
+    return 0;
 }

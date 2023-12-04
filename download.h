@@ -31,7 +31,6 @@
 #define RESOURCE_URL            "%*[^/]//%*[^/]/%s"
 #define USER_URL                "%*[^/]//%[^:/]"
 #define PASS_URL                "%*[^/]//%*[^:]:%[^@\n$]"
-#define RESPCODE_REGEX          "%d"
 #define PASSIVE_REGEX           "%*[^(](%d,%d,%d,%d,%d,%d)%*[^\n$)]"
 
 
@@ -56,6 +55,6 @@ int getIpAddress(char *ip, char *host);
 int createAndConnectSocket(char *ip, int port);
 int stateMachine(int socket, char *buf);
 int authenticate(int socket, char *user, char *pass);
-
-
-
+int switchPassiveMode(int socket, char *ip, int *portFT);
+int resqPath(int socket, char *path);
+int getFile(int socketA, int socketB, char *fileName);
