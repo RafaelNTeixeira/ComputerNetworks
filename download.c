@@ -8,7 +8,8 @@ int parseArguments(char *url, struct parseArguments *pa) {
     if (p == NULL) return -1;
     p += 6;  // Skip "ftp://"
 
-    // Check if the URL contains a username and password
+    // Check if the URL contains a username and password 
+    // ftp://[<user>:<password>@]<host>/<url-path>
     char *at = strchr(p, '@');
     if (at != NULL) {
         // The URL contains a username and password
@@ -24,7 +25,7 @@ int parseArguments(char *url, struct parseArguments *pa) {
 
         p = at + 1;  // Skip the "@"
     } else {
-        // The URL does not contain a username and password
+        //ftp://<host>/<url-path>
         strcpy(pa->user, "anonymous");
         strcpy(pa->password, "anonymous@");
     }
