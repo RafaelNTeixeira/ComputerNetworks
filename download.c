@@ -3,26 +3,41 @@
 int parseArguments(char *url, struct parseArguments *pa) {
     printf("Parsing command line arguments...\n");
 
-    regex_t regex;
-    regcomp(&regex, BAR, 0);
-    if (regexec(&regex, url, 0, NULL, 0)) return -1;
+    // Skip the "ftp://" part
+    char *p = strstr(url, "ftp://");
+    if (p == NULL) return -1;
+    p += 6;  // Skip "ftp://"
 
-    regcomp(&regex, AT, 0);
-    if (regexec(&regex, url, 0, NULL, 0) != 0) { //ftp://<host>/<url-path>
-        
-        sscanf(url, URL_WITHOUT_U_AND_P, pa->host);
+    // Check if the URL contains a username and password
+    char *at = strchr(p, '@');
+    if (at != NULL) {
+        // The URL contains a username and password
+        *at = '\0';  // Split the string into two parts
+
+        // Get the username and password
+        char *colon = strchr(p, ':');
+        if (colon == NULL) return -1;
+        *colon = '\0';  // Split the string into two parts
+
+        strcpy(pa->user, p);
+        strcpy(pa->password, colon + 1);
+
+        p = at + 1;  // Skip the "@"
+    } else {
+        // The URL does not contain a username and password
         strcpy(pa->user, "anonymous");
         strcpy(pa->password, "anonymous@");
-
-    } else { // ftp://[<user>:<password>@]<host>/<url-path>
-
-        sscanf(url, URL_WITH_U_AND_P, pa->host);
-        sscanf(url, USER_URL, pa->user);
-        sscanf(url, PASS_URL, pa->password);
     }
 
-    sscanf(url, RESOURCE_URL, pa->path);
-    strcpy(pa->file, strrchr(url, '/') + 1);
+    // Get the host
+    char *slash = strchr(p, '/');
+    if (slash == NULL) return -1;
+    *slash = '\0';  // Split the string into two parts
+    strcpy(pa->host, p);
+
+    // Get the path and file
+    strcpy(pa->path, slash + 1);
+    strcpy(pa->file, strrchr(pa->path, '/') + 1);
 
     return 0;
 }
@@ -116,7 +131,9 @@ int authenticate(int socket, char *user, char *pass) {
 
     printf("userCom: %s\n", userCom);
     printf("passCom: %s\n", passCom);
+
     write(socket, userCom, strlen(userCom));
+
     if (stateMachine(socket, res) != READY4PASS){
         printf("Unknown user!");
         return -1;
