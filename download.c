@@ -61,15 +61,15 @@ int createAndConnectSocket(char *ip, int port) {
     return sockfd;
 }
 
-int stateMachine(int socket, char *buf) {
-    char byte;
+int stateMachine(const int socket, char *buf) {
+    char byte = '\0';
     State state = START;
     int i = 0;
     memset(buf, 0, MAX_LENGTH);
+
     while(state != END){
-        printf("HERE1\n");
         read(socket, &byte, 1);
-        printf("HERE2\n");
+        printf("byte: %s\n", &byte);
         switch (state) {
             case START:
                 if (byte == ' ') state = SPACE;
@@ -91,6 +91,7 @@ int stateMachine(int socket, char *buf) {
                 }
                 else buf[i++] = byte;
                 break;
+
             case END:
                 break;
 
@@ -101,6 +102,7 @@ int stateMachine(int socket, char *buf) {
 
     printf("Buf: %s\n", buf);
     int code = atoi(buf);
+    printf("code: %d\n", code);
     return code;
 }
 
@@ -109,9 +111,8 @@ int authenticate(int socket, char *user, char *pass) {
     char passCom[5+strlen(pass)+1]; 
     char res[MAX_LENGTH];
 
-    
-    sprintf(userCom, "USER %s\n", user);
-    sprintf(passCom, "PASS %s\n", pass);
+    snprintf(userCom, sizeof(userCom), "USER %s\n", user);
+    snprintf(passCom, sizeof(passCom), "PASS %s\n", pass);
 
     printf("userCom: %s\n", userCom);
     printf("passCom: %s\n", passCom);
@@ -202,12 +203,12 @@ int main(int argc, char **argv) {
     struct parseArguments pa;
     memset(&pa, 0, sizeof(pa));
 
-    if(parseArguments(argv[1], &pa) != 0){
+    if (parseArguments(argv[1], &pa) != 0) {
         printf("Parse error!");
         exit(-1);
     }
 
-    if(getIpAddress(pa.ip, pa.host) != 0){
+    if (getIpAddress(pa.ip, pa.host) != 0){
         printf("getIpAddress() error!");
         exit(-1);
     }
