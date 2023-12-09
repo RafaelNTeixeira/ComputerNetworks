@@ -5,29 +5,30 @@ int parseArguments(char *url, struct parseArguments *pa) {
 
     regex_t regex;
     regcomp(&regex, BAR, 0);
-    if (regexec(&regex, pa, 0, NULL, 0)) return -1;
+    if (regexec(&regex, url, 0, NULL, 0)) return -1;
 
     regcomp(&regex, AT, 0);
-    if (regexec(&regex, pa, 0, NULL, 0) != 0) { //ftp://<host>/<url-path>
+    if (regexec(&regex, url, 0, NULL, 0) != 0) { //ftp://<host>/<url-path>
         
-        sscanf(pa, URL_WITHOUT_U_AND_P, pa->host);
+        sscanf(url, URL_WITHOUT_U_AND_P, pa->host);
         strcpy(pa->user, "anonymous");
-        strcpy(pa->password, "password");
+        strcpy(pa->password, "anonymous@");
 
     } else { // ftp://[<user>:<password>@]<host>/<url-path>
 
-        sscanf(pa, URL_WITH_U_AND_P, pa->host);
-        sscanf(pa, USER_URL, pa->user);
-        sscanf(pa, PASS_URL, pa->password);
+        sscanf(url, URL_WITH_U_AND_P, pa->host);
+        sscanf(url, USER_URL, pa->user);
+        sscanf(url, PASS_URL, pa->password);
     }
 
-    sscanf(pa, RESOURCE_URL, pa->path);
-    strcpy(pa->file, strrchr(pa, '/') + 1);
+    sscanf(url, RESOURCE_URL, pa->path);
+    strcpy(pa->file, strrchr(url, '/') + 1);
 
     return 0;
 }
 
 int getIpAddress(char *ip, char *host) {
+    struct hostent *h;
     if ((h = gethostbyname(host)) == NULL) {
         printf("gethostbyname() ERROR!");
         return -1;
@@ -65,51 +66,55 @@ int stateMachine(int socket, char *buf) {
     State state = START;
     int i = 0;
     memset(buf, 0, MAX_LENGTH);
-
     while(state != END){
-        read(socket, %byte, 1);
+        printf("HERE1\n");
+        read(socket, &byte, 1);
+        printf("HERE2\n");
         switch (state) {
-        case START:
-            if (byte == ' ') state = SPACE;
-            else if (byte == '-') state = TRACE;
-            else if (byte == '\n') state = END;
-            else buf[i++] = byte; 
-            break;
-        
-        case SPACE:
-            if(byte == '\n') state = END;
-            else buf[i++] = byte;
-            break;
-        
-        case TRACE:
-            if(byte == '\n'){
-                memset(buf, 0, MAX_LENGTH);
-                state = START;
-                i = 0;
-            }
-            else buf[i++] = byte;
-            break;
-        case END:
-            break;
+            case START:
+                if (byte == ' ') state = SPACE;
+                else if (byte == '-') state = TRACE;
+                else if (byte == '\n') state = END;
+                else buf[i++] = byte; 
+                break;
+            
+            case SPACE:
+                if(byte == '\n') state = END;
+                else buf[i++] = byte;
+                break;
+            
+            case TRACE:
+                if(byte == '\n'){
+                    memset(buf, 0, MAX_LENGTH);
+                    state = START;
+                    i = 0;
+                }
+                else buf[i++] = byte;
+                break;
+            case END:
+                break;
 
-        default:
-            break;
+            default:
+                break;
         }
     }
 
+    printf("Buf: %s\n", buf);
     int code = atoi(buf);
     return code;
 }
 
 int authenticate(int socket, char *user, char *pass) {
-    char userCom[5+strlen(user)+1]; // Não sei porque se adiciona 5 e 1
+    char userCom[5+strlen(user)+1]; 
     char passCom[5+strlen(pass)+1]; 
     char res[MAX_LENGTH];
 
-    snprintf(userCom, sizeof(userCom), "user %s\n", user);
-    snprintf(passCom, sizeof(passCom), "pass %s\n", pass);
+    
+    sprintf(userCom, "USER %s\n", user);
+    sprintf(passCom, "PASS %s\n", pass);
 
-
+    printf("userCom: %s\n", userCom);
+    printf("passCom: %s\n", passCom);
     write(socket, userCom, strlen(userCom));
     if (stateMachine(socket, res) != READY4PASS){
         printf("Unknown user!");
@@ -153,7 +158,7 @@ int resqPath(int socket, char *path) {
 }
 
 int getFile(int socketA, int socketB, char *fileName){
-    FILE *file = fopen(filename, "wb");
+    FILE *file = fopen(fileName, "wb");
 
     if (file == NULL){
         printf("Error opening or creating file");
@@ -167,13 +172,13 @@ int getFile(int socketA, int socketB, char *fileName){
         bytes = read(socketB, buf, MAX_LENGTH);
         if (bytes < 0) {
             perror("Error reading from socket");
-            fclose(fd);
+            fclose(file);
             return -1;
         }
 
         if (fwrite(buf, bytes, 1, file) < 0) {
             perror("Error writing to file");
-            fclose(fd);
+            fclose(file);
             return -1;
         }
     } while (bytes > 0);
@@ -227,7 +232,8 @@ int main(int argc, char **argv) {
         exit(-1);
     }
 
-    if (authenticate(socketA, pa.user, pa.path) != LOGINSUCCESS){
+    printf("here\n");
+    if (authenticate(socketA, pa.user, pa.password) != LOGINSUCCESS){
         printf("Authentication failed!");
         exit(-1);
     }

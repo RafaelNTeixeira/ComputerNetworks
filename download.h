@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <netdb.h>
+#include <regex.h>
 
 #include <string.h>
 
