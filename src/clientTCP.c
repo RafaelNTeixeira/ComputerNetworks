@@ -82,10 +82,12 @@ int downloadFileFromDataConnection(int dataSocket, FILE *fileptr) {
 int handleEnterPassive(int sockfd, char* buf, char* IPAddress, char* retrvPath) {
     int port = getPortNumber(buf);
     int sockfd2 = createSocket(IPAddress, port);
+
     if (sockfd2 == -1) {
         fprintf(stderr, "Error creating data connection\n");
         return -1;
     }
+
     write(sockfd, retrvPath, strlen(retrvPath));
     printf("Data connection created\n");
     return sockfd2;
@@ -190,7 +192,7 @@ int connectionDownload(url *url, char *IPAddress) {
                 printf("Download completed\n");
                 break;
             default:
-                fprintf(stderr, "Received unexpected status code: %d\n", sc);
+                fprintf(stderr, "Received unexpected status code: %d\n", statusCode);
                 return -1;
         }
     }
