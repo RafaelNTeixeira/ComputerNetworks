@@ -53,7 +53,6 @@ int getLastLineStatusCode(const char *buf) {
     return a;
 }
 
-
 int getPortNumber(char *buf) {
     int num[5] = {0};
     int i = 0;
@@ -69,10 +68,6 @@ int getPortNumber(char *buf) {
     return (num[3] * 256 + num[4]);
 }
 
-int createDataConnection(char *IPAddress, int port) {
-    return createSocket(IPAddress, port);  
-}
-
 int downloadFileFromDataConnection(int dataSocket, FILE *fileptr) {
     char buffer[500];
     size_t bytesRead;
@@ -82,6 +77,35 @@ int downloadFileFromDataConnection(int dataSocket, FILE *fileptr) {
     }
 
     return bytesRead;  
+}
+
+int handleEnterPassive(int sockfd, char* buf, char* IPAddress, char* retrvPath) {
+    int port = getPortNumber(buf);
+    int sockfd2 = createSocket(IPAddress, port);
+    if (sockfd2 == -1) {
+        fprintf(stderr, "Error creating data connection\n");
+        return -1;
+    }
+    write(sockfd, retrvPath, strlen(retrvPath));
+    printf("Data connection created\n");
+    return sockfd2;
+}
+
+void handleDownload(int sockfd2, FILE* fileptr) {
+    char buf2[1024];
+    ssize_t bytes2;
+    while (1) {
+        memset(buf2, 0, sizeof(buf2));
+        bytes2 = read(sockfd2, buf2, sizeof(buf2));
+        if (bytes2 != -1 && bytes2 != 0) {
+            for (int i = 0; i < bytes2; i++) {
+                printf("%c", buf2[i]);
+                fputc(buf2[i], fileptr);
+            }
+        } else {
+            break;
+        }
+    }
 }
 
 int connectionDownload(url *url, char *IPAddress) {
@@ -128,10 +152,11 @@ int connectionDownload(url *url, char *IPAddress) {
         if (bytes == -1 || bytes == 0) {
             continue;
         }
-        printf("\n%s\n", buf);
-        int sc = getLastLineStatusCode(buf);
 
-        switch (sc) {
+        printf("\n%s\n", buf);
+        int statusCode = getLastLineStatusCode(buf);
+
+        switch (statusCode) {
             case SERVICE_READY: 
                 if (!visited) {
                     visited = 1;
@@ -148,34 +173,18 @@ int connectionDownload(url *url, char *IPAddress) {
                 printf("Entering passive mode\n");
                 break;
             case ENTER_PASSIVE: 
-                port = getPortNumber(buf);
-                sockfd2 = createDataConnection(IPAddress, port);
+                sockfd2 = handleEnterPassive(sockfd, buf, IPAddress, retrvPath);
                 if (sockfd2 == -1) {
-                    fprintf(stderr, "Error creating data connection\n");
                     return -1;
                 }
-                write(sockfd, retrvPath, strlen(retrvPath));
-                printf("Data connection created\n");
-                break;
-            case FILE_OK: // FILE OKAY, OPEN DATA CONNECTION
+                break; 
+            case FILE_OK: 
                 fileptr = fopen(url->filename, "w");
                 download = 1;
                 printf("File opened and ready for download\n");
                 break;
-            case DOWNLOAD: // CLOSE DATA CONNECTION, DOWNLOAD DONE, STOP FLAG ACTIVATE
-                while (1) {
-                    memset(buf2, 0, sizeof(buf2));
-                    bytes2 = read(sockfd2, buf2, sizeof(buf2));
-                    if (bytes2 != -1 && bytes2 != 0) {
-                        for (int i = 0; i < bytes2; i++) {
-                            printf("%c", buf2[i]);
-                            fputc(buf2[i], fileptr);
-                        }
-                        printf("\n");
-                    } else {
-                        break;
-                    }
-                }
+            case DOWNLOAD: 
+                handleDownload(sockfd2, fileptr);
                 download = 0;
                 STOP = 1;
                 printf("Download completed\n");
