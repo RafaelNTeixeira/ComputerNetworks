@@ -1,0 +1,3 @@
+ftp://ftp.up.pt/pub/kodi/timestamp.txt
+ftp://netlab1.fe.up.pt/pub.txt
+ftp://rcom:rcom@netlab1.fe.up.pt/pipe.txt
