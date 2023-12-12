@@ -35,6 +35,7 @@ int createSocket(char *serverAddress,int port){ //sv_add = ip macro
     return sockfd;
 }
 
+// Ex: If the input string is something like "200\n404\n500\n", the function will return 500.
 int getLastLineStatusCode(const char *buf) {
     int a = 0;
     const char *start = buf;
@@ -46,6 +47,7 @@ int getLastLineStatusCode(const char *buf) {
         }
         buf++;
     }
+
     if (start != buf) {
         a = atoi(start);
     }
@@ -53,12 +55,13 @@ int getLastLineStatusCode(const char *buf) {
     return a;
 }
 
+// "192,168,1,1,123,34", the function will return 123*256 + 34 = 31490.
 int getPortNumber(char *buf) {
     int num[5] = {0};
     int i = 0;
-    char *pt;
-    pt = strtok(buf, ",");
+    char *pt = strtok(buf, ",");
     pt = strtok(NULL, ",");
+
     while (pt != NULL) {
         int a = atoi(pt);
         num[i] = a;
@@ -94,16 +97,14 @@ int handleEnterPassive(int sockfd, char* buf, char* IPAddress, char* retrvPath) 
 }
 
 void handleDownload(int sockfd2, FILE* fileptr) {
-    char buf2[1024];
-    ssize_t bytes2;
+    char bufDownload[1024];
+    ssize_t bytesDownload;
     while (1) {
-        memset(buf2, 0, sizeof(buf2));
-        bytes2 = read(sockfd2, buf2, sizeof(buf2));
-        if (bytes2 != -1 && bytes2 != 0) {
-            for (int i = 0; i < bytes2; i++) {
-                printf("%c", buf2[i]);
-                fputc(buf2[i], fileptr);
-            }
+        memset(bufDownload, 0, sizeof(bufDownload));
+        bytesDownload = read(sockfd2, bufDownload, sizeof(bufDownload));
+        if (bytesDownload > 0) {
+            fwrite(bufDownload, sizeof(char), bytesDownload, fileptr);
+            printf("%.*s", (int)bytesDownload, bufDownload);
         } else {
             break;
         }
@@ -129,31 +130,15 @@ int connectionDownload(url *url, char *IPAddress) {
     int sockfd2 = 0;
     FILE *fileptr = NULL;
     int port = 0;
-    int download = 0;
     int STOP = 0;
     int visited = 0;
-    size_t bytes, bytes2;
+    size_t bytes, bytesDownload;
     char buf[500] = {0};
-    char buf2[500] = {0};
+    char bufDownload[500] = {0};
 
     while (!STOP) {
         memset(buf, 0, sizeof(buf));
-        bytes = read(sockfd, buf, sizeof(buf));
-
-        if (download) {
-            memset(buf2, 0, sizeof(buf2));
-            bytes2 = read(sockfd2, buf2, sizeof(buf2));
-            if (bytes2 != -1 && bytes2 != 0) {
-                for (int i = 0; i < bytes2; i++) {
-                    printf("%c", buf2[i]);
-                    fputc(buf2[i], fileptr);
-                }
-            }
-        }
-
-        if (bytes == -1 || bytes == 0) {
-            continue;
-        }
+        if (bytes = read(sockfd, buf, sizeof(buf)) <= 0) continue;
 
         printf("\n%s\n", buf);
         int statusCode = getLastLineStatusCode(buf);
@@ -182,14 +167,13 @@ int connectionDownload(url *url, char *IPAddress) {
                 break; 
             case FILE_OK: 
                 fileptr = fopen(url->filename, "w");
-                download = 1;
                 printf("File opened and ready for download\n");
                 break;
             case DOWNLOAD: 
                 handleDownload(sockfd2, fileptr);
-                download = 0;
                 STOP = 1;
-                printf("Download completed\n");
+                printf("\nDownload completed\n");
+                write(sockfd, "QUIT\r\n", 6);
                 break;
             default:
                 fprintf(stderr, "Received unexpected status code: %d\n", statusCode);
@@ -197,7 +181,10 @@ int connectionDownload(url *url, char *IPAddress) {
         }
     }
 
-    fclose(fileptr);
+
+    if (fclose(fileptr) < 0) {
+        return -1;
+    }
 
     if (close(sockfd2) < 0) {
         perror("close()");
