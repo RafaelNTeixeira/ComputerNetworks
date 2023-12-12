@@ -173,7 +173,6 @@ int connectionDownload(url *url, char *IPAddress) {
                 handleDownload(sockfd2, fileptr);
                 STOP = 1;
                 printf("\nDownload completed\n");
-                write(sockfd, "QUIT\r\n", 6);
                 break;
             default:
                 fprintf(stderr, "Received unexpected status code: %d\n", statusCode);
