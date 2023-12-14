@@ -86,7 +86,7 @@ int handleEnterPassive(int sockfd, char* buf, char* IPAddress, char* retrvPath) 
     int port = getPortNumber(buf);
     int sockfd2 = createSocket(IPAddress, port);
 
-    if (sockfd2 == -1) {
+    if (sockfd2 < 0) {
         fprintf(stderr, "Error creating data connection\n");
         return -1;
     }
@@ -129,12 +129,10 @@ int connectionDownload(url *url, char *IPAddress) {
 
     int sockfd2 = 0;
     FILE *fileptr = NULL;
-    int port = 0;
     int STOP = 0;
     int visited = 0;
-    size_t bytes, bytesDownload;
+    size_t bytes;
     char buf[500] = {0};
-    char bufDownload[500] = {0};
 
     while (!STOP) {
         memset(buf, 0, sizeof(buf));

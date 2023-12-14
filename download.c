@@ -17,7 +17,7 @@ int main(int argc, char *argv[]) {
 	printf("Path: %s\n", inputURL.path);
 	printf("Filename: %s\n", inputURL.filename);
 
-    char IPAddress[20] = "";
+    char IPAddress[500];
 
     if (getIP(inputURL.host, IPAddress) != 0) {
         printf("getIP error on main\n");
