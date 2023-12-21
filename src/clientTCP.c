@@ -167,7 +167,8 @@ int connectionDownload(url *url, char *IPAddress) {
                 fileptr = fopen(url->filename, "w");
                 printf("File opened and ready for download\n");
                 break;
-            case DOWNLOAD: 
+            case DOWNLOAD:
+                printf("Downloading...\n");
                 handleDownload(sockfd2, fileptr);
                 STOP = 1;
                 printf("\nDownload completed\n");
